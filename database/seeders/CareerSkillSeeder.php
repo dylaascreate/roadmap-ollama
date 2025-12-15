@@ -2,12 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-
 use App\Models\Career;
 use App\Models\Skill;
-
+use Illuminate\Database\Seeder;
 
 class CareerSkillSeeder extends Seeder
 {
@@ -24,9 +21,9 @@ class CareerSkillSeeder extends Seeder
         $php = Skill::create(['name' => 'PHP']);
         $laravel = Skill::create(['name' => 'Laravel']);
         $sql = Skill::create(['name' => 'SQL']);
-        
+
         // 2. Create Careers & Attach Skills
-        
+
         // Frontend: HTML, CSS, JS, Vue
         $fe = Career::create(['name' => 'Frontend Developer']);
         $fe->skills()->attach([$html->id, $css->id, $js->id, $vue->id]);

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+
+// use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -37,26 +39,20 @@ class AuthController extends Controller
     // Handle Login
     public function login(Request $request)
     {
-        $request->validate([
+        $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+        if (! Auth::attempt($credentials)) {
+            // ⬇️ THIS IS THE FIX: Add 401 here
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        // Delete old tokens to keep it clean (optional)
-        $user->tokens()->delete();
-
+        $user = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login successful',
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);
@@ -66,6 +62,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Logged out successfully']);
     }
 }
