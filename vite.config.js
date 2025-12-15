@@ -23,5 +23,9 @@ export default defineConfig({
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
+        host: '0.0.0.0', // <--- Listen on all addresses
+        hmr: {
+            host: 'localhost' // <--- Hot Module Replacement needs to know where the browser is
+        },
     },
 });
