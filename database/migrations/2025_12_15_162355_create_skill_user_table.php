@@ -17,6 +17,7 @@ public function up()
         $table->foreignId('skill_id')->constrained()->onDelete('cascade');
         // Prevent duplicate entries (User can't have 'PHP' twice)
         $table->unique(['user_id', 'skill_id']); 
+        $table->timestamps();
     });
 }
     /**

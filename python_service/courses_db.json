@@ -1,0 +1,201 @@
+[
+    {
+        "course_code": "DES3083",
+        "course_name": "Software Engineering Process",
+        "clos": [
+            "CLO1: Choose appropriate software development process model based on software development project taken.",
+            "CLO2: Produce complete software development for software development purposes.",
+            "CLO3: Analyse in depth a software process following several analysis approaches.",
+            "CLO4: Work effectively as part of a team."
+        ],
+        "associated_skills": [
+            "Jira / Trello (Agile Project Management)",
+            "Git & GitHub (Version Control for Teams)",
+            "CI/CD Pipelines (Jenkins or GitHub Actions)",
+            "UML Modeling Tools (StarUML or Lucidchart)",
+            "Docker (Basic Containerization for DevOps)"
+        ]
+    },
+    {
+        "course_code": "DES3103",
+        "course_name": "Software Validation and Verification",
+        "clos": [
+            "CLO1: Explain the software validation and verification (V&V) objectives, V&V terminologies, V&V issues, V&V strategies, V&V management and reporting.",
+            "CLO2: Produce software V&V plan.",
+            "CLO3: Express the issues, methods and techniques in software testing for both software core engines and human-computer interfaces.",
+            "CLO4: Evaluate the produced software based on the V&V plan."
+        ],
+        "associated_skills": [
+            "Selenium / Cypress (Automated Web Testing)",
+            "Postman (API Testing & Validation)",
+            "SonarQube (Static Code Analysis & Quality Gates)",
+            "JUnit / PHPUnit (Unit Testing Frameworks)",
+            "OWASP ZAP (Security Verification & Scanning)"
+        ]
+    },
+    {
+        "course_code": "DES3113",
+        "course_name": "Mobile Application Design & Development",
+        "clos": [
+            "CLO1: Use creativity and problem-solving skills in designing mobile applications.",
+            "CLO2: Apply appropriate event handler in handling the application event.",
+            "CLO3: Develops a complete mobile application with the CRUD concept.",
+            "CLO4: Working effectively in teams."
+        ],
+        "associated_skills": [
+            "Flutter & Dart (Core Framework)",
+            "Firebase (Firestore, Auth, Cloud Functions)",
+            "SQLite (Local Database Storage)",
+            "Figma (Mobile UI/UX Prototyping)",
+            "Google Play Console / Apple App Store Connect (Deployment)"
+        ]
+    },
+    {
+        "course_code": "DTN3023",
+        "course_name": "Computer Networks",
+        "clos": [
+            "CLO1: Explain the computer networking concepts and theory based on the essential and latest network protocols.",
+            "CLO2: Implement a computer network-based solution to meet a given set of computing requirements.",
+            "CLO3: Work effectively as part of a team to complete a project."
+        ],
+        "associated_skills": [
+            "Cisco Packet Tracer (Network Simulation & Design)",
+            "Wireshark (Packet Sniffing & Traffic Analysis)",
+            "Subnetting & IPv4 Addressing (Core Networking Skill)",
+            "Basic Networking Commands (ping, tracert, nslookup, netstat)",
+            "Router & Switch Configuration (Basic CLI)"
+        ]
+    },
+    {
+        "course_code": "DTN3043",
+        "course_name": "Operating Systems",
+        "clos": [
+            "CLO1: Explain the fundamental concept of operating, theories, and principles.",
+            "CLO2: Apply Operating System knowledge to adapt modern computing system.",
+            "CLO3: Perform operating system problem solution correctly.",
+            "CLO4: Working with members for group project."
+        ],
+        "associated_skills": [
+            "Linux Command Line (Bash/Shell Scripting)",
+            "C/C++ (Memory Management & Pointers)",
+            "VirtualBox / VMware (Virtualization)",
+            "System Administration (User Permissions, File Systems)",
+            "PowerShell (Windows Administration Scripting)"
+        ]
+    },
+    {
+        "course_code": "DTS3013",
+        "course_name": "Structured Programming",
+        "clos": [
+            "CLO1: Select an appropriate programming concept to solve the problem solving.",
+            "CLO2: Build computer solutions for daily life problems.",
+            "CLO3: Working effectively in teams."
+        ],
+        "associated_skills": [
+            "C++ (Standard Template Library & Syntax)",
+            "VS Code / Visual Studio (C++ Development Environment)",
+            "GDB Debugger (Troubleshooting Logic Errors)",
+            "Flowgorithm / Lucidchart (Flowchart & Algorithm Design)",
+            "File I/O Handling (Reading/Writing Text Files in C++)"
+        ]
+    },
+    {
+        "course_code": "DTS3083",
+        "course_name": "Data Structures",
+        "clos": [
+            "CLO1: Analyses time complexity of an algorithm and data structures used in the computer program.",
+            "CLO2: Solve related computer based problems using appropriate algorithms and data structures.",
+            "CLO3: Develop algorithms and data structures programs using appropriate computer language.",
+            "CLO4: Work effectively as part of a team."
+        ],
+        "associated_skills": [
+            "C++ STL (Standard Template Library - Vectors, Maps)",
+            "Big O Notation (Time & Space Complexity Analysis)",
+            "Graph Algorithms (Dijkstra, BFS, DFS)",
+            "Memory Management (Pointers & Dynamic Allocation)",
+            "VisuAlgo (Data Structure Visualization Tools)"
+        ]
+    },
+    {
+        "course_code": "DTS3093",
+        "course_name": "Object Oriented Programming",
+        "clos": [
+            "CLO1: Apply knowledge of underlying concepts of object-oriented programming paradigm.",
+            "CLO2: Show the factors that contribute to a good object oriented programming ethics.",
+            "CLO3: Develop a program based on OOP concepts in problem solving and development of object oriented programs.",
+            "CLO4: Work in a team to develop a medium to complex program as a group mini project."
+        ],
+        "associated_skills": [
+            "Java JDK & JVM (Core Language)",
+            "IntelliJ IDEA / Eclipse (Industry Standard IDEs)",
+            "UML Class Diagrams (Visualizing Software Architecture)",
+            "Object-Oriented Design (SOLID Principles)",
+            "Javadoc (Code Documentation Standards)"
+        ]
+    },
+    {
+        "course_code": "DES3023",
+        "course_name": "Software Requirements and Specifications",
+        "clos": [
+            "CLO1: Create contents of a requirement document that comprise of suitable representations and solutions based on a given problem domain.",
+            "CLO2: Build high quality requirements models using suitable digital applications/tools.",
+            "CLO3: Elicit information using suitable communication techniques."
+        ],
+        "associated_skills": [
+            "SRS Documentation (IEEE 830 Standard)",
+            "UML Modeling Tools (StarUML / Visual Paradigm)",
+            "Requirements Elicitation (Interviews, Surveys, Workshops)",
+            "Agile User Stories (Writing Acceptance Criteria)",
+            "JIRA / Confluence (Requirements Management & Tracking)"
+        ]
+    },
+    {
+        "course_code": "DES3043",
+        "course_name": "Software Design",
+        "clos": [
+            "CLO1: Create a design document that comprise of newly constructed design information based on a scenario/software requirements.",
+            "CLO2: Build software design artifacts using correct model types, notations and techniques.",
+            "CLO3: Choose a selection of suitable digital applications/tools for solving design problems."
+        ],
+        "associated_skills": [
+            "Software Design Document (SDD) Writing (IEEE 1016 Standard)",
+            "Draw.io / Lucidchart (System Architecture Diagrams)",
+            "Figma / Adobe XD (UI/UX & Interaction Design)",
+            "REST API Design (Swagger / OpenAPI Specification)",
+            "Microservices & Serverless Architecture Patterns",
+            "Web Architecture (SPA/PWA)"
+        ]
+    },
+    {
+        "course_code": "DES3053",
+        "course_name": "Software Testing and Quality",
+        "clos": [
+            "CLO1: Apply the concepts and theories of software testing and quality within the context of a software development application.",
+            "CLO2: Produce a software testing and quality work product.",
+            "CLO3: Design optimal number of measurable test cases using appropriate testing techniques."
+        ],
+        "associated_skills": [
+            "Manual & Automated Testing (Black-box & White-box techniques)",
+            "Test Case Management (Writing effective test scenarios)",
+            "API Testing (Postman / REST Assured)",
+            "Regression Testing & Agile QA Processes",
+            "Static Testing (Code Reviews & Inspections)"
+        ]
+    },
+    {
+        "course_code": "DES3073",
+        "course_name": "Software Engineering Project",
+        "clos": [
+            "CLO1: Produce complete software documents for software development purposes.",
+            "CLO2: Develop software based on the produced documents.",
+            "CLO3: Demonstrate professional ethics in software development on overall."
+        ],
+        "associated_skills": [
+            "Laravel Framework (Website & MVC Architecture)",
+            "Project Management Tools (Gantt Charts / Microsoft Project)",
+            "API Integration (RESTful Services for Database)",
+            "Defensive Programming (Error Handling & Security)",
+            "Software Migration Strategies (Deployment & Environment Transfer)"
+        ]
+    }
+]

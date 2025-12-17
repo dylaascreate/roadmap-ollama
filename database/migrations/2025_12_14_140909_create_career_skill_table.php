@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('skill_id')->constrained()->onDelete('cascade');
         
             $table->unique(['career_id', 'skill_id']); // No duplicates
+            
         });
     }
 
