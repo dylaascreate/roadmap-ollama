@@ -48,18 +48,4 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::post('/skills', [SkillController::class, 'store']);
     Route::put('/skills/{skill}', [SkillController::class, 'update']);
     Route::delete('/skills/{skill}', [SkillController::class, 'destroy']);
-
-    // Roadmaps
-    Route::get('/roadmaps', [RoadmapController::class, 'index']);
-    Route::get('/roadmaps/option', [RoadmapController::class, 'getOptions']);
-    Route::post('/roadmaps/generate', [RoadmapController::class, 'generate']); // Create (AI)
-    Route::post('/roadmaps/save', [RoadmapController::class, 'store']);
-    Route::get('/roadmaps/{id}', [RoadmapController::class, 'show']);
-    Route::delete('/roadmaps/{id}', [RoadmapController::class, 'destroy']);
-
-    // Tasks
-    Route::patch('/tasks/{id}/toggle', [RoadmapController::class, 'toggleTask']); // Checkbox
-
-    // User Profile
-    Route::post('/profile/skills', [ ProfileController::class, 'updateSkills']);
 });
