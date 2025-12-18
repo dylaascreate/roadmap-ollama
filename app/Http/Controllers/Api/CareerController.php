@@ -26,7 +26,7 @@ class CareerController extends Controller
         $request->validate([
             'name' => 'required|unique:careers,name',
             'skills' => 'array',        // Optional: List of Skill IDs
-            'skills.*' => 'exists:skills,id'
+            'skills.*' => 'exists:skills,id',
         ]);
 
         $career = Career::create(['name' => $request->name]);
@@ -42,9 +42,9 @@ class CareerController extends Controller
     public function update(Request $request, Career $career)
     {
         $request->validate([
-            'name' => 'unique:careers,name,' . $career->id,
+            'name' => 'unique:careers,name,'.$career->id,
             'skills' => 'array',
-            'skills.*' => 'exists:skills,id'
+            'skills.*' => 'exists:skills,id',
         ]);
 
         if ($request->has('name')) {
@@ -65,11 +65,12 @@ class CareerController extends Controller
         if ($career->users()->count() > 0) {
             return response()->json([
                 'message' => 'Cannot delete career. Users are currently pursuing this path.',
-                'user_count' => $career->users()->count()
+                'user_count' => $career->users()->count(),
             ], 409);
         }
 
         $career->delete();
+
         return response()->json(['message' => 'Career deleted successfully']);
     }
 }

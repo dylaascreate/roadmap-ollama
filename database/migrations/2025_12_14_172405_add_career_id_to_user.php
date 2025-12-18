@@ -9,13 +9,14 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-public function up()
-{
-    Schema::table('users', function (Blueprint $table) {
-        // Nullable because a new user hasn't picked a career yet
-        $table->foreignId('career_id')->nullable()->constrained()->onDelete('set null');
-    });
-}
+    public function up()
+    {
+        Schema::table('users', function (Blueprint $table) {
+            // Nullable because a new user hasn't picked a career yet
+            $table->foreignId('career_id')->nullable()->constrained()->onDelete('set null');
+        });
+    }
+
     /**
      * Reverse the migrations.
      */

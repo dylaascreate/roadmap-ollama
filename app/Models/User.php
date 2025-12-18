@@ -12,17 +12,17 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     public function skills()
-{
-    return $this->belongsToMany(Skill::class);
-}
+    {
+        return $this->belongsToMany(Skill::class);
+    }
 
-public function career()
-{
-    return $this->belongsTo(Career::class);
-}
+    public function career()
+    {
+        return $this->belongsTo(Career::class);
+    }
 
     /**
      * The attributes that are mass assignable.

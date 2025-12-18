@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
 
             // Courses Outline
             CareerSkillSeeder::class,
-            CourseSeeder::class,   
+            CourseSeeder::class,
             CourseUserSeeder::class,
         ]);
     }

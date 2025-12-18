@@ -11,19 +11,19 @@ class CourseUserSeeder extends Seeder
     public function run(): void
     {
         // Get our Test User
-        $user = User::where('email', 'ali@test.com')->first();
+        $user = User::where('email', 'ali@examle.com')->first();
 
         if ($user) {
             // Ali has completed "Software Requirements" (DES3023)
             DB::table('course_user')->updateOrInsert(
                 [
                     'user_id' => $user->id,
-                    'course_code' => 'DES3023'
+                    'course_code' => 'DES3023',
                 ],
                 [
-                    'status' => 'completed', 
+                    'status' => 'completed',
                     'grade' => 'A',
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ]
             );
 
@@ -31,12 +31,12 @@ class CourseUserSeeder extends Seeder
             DB::table('course_user')->updateOrInsert(
                 [
                     'user_id' => $user->id,
-                    'course_code' => 'DTS3013'
+                    'course_code' => 'DTS3013',
                 ],
                 [
-                    'status' => 'completed', 
+                    'status' => 'completed',
                     'grade' => 'B+',
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ]
             );
         }

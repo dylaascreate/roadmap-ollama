@@ -9,19 +9,19 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-public function up()
-{
-    Schema::table('courses', function (Blueprint $table) {
-        // Create the column (Nullable because the final project has no 'next step')
-        $table->string('next_course_code')->nullable();
+    public function up()
+    {
+        Schema::table('courses', function (Blueprint $table) {
+            // Create the column (Nullable because the final project has no 'next step')
+            $table->string('next_course_code')->nullable();
 
-        // Create the link (Foreign Key pointing to the SAME table)
-        $table->foreign('next_course_code')
-              ->references('code')
-              ->on('courses')
-              ->onDelete('set null');
-    });
-}
+            // Create the link (Foreign Key pointing to the SAME table)
+            $table->foreign('next_course_code')
+                ->references('code')
+                ->on('courses')
+                ->onDelete('set null');
+        });
+    }
 
     /**
      * Reverse the migrations.

@@ -12,17 +12,17 @@ class ProfileController extends Controller
     {
         $request->validate([
             'skills' => 'array',        // Expect a list
-            'skills.*' => 'exists:skills,id' // Every item must be a valid Skill ID
+            'skills.*' => 'exists:skills,id', // Every item must be a valid Skill ID
         ]);
 
         $user = $request->user();
-        
+
         // 'sync' is magic: It adds new ones, removes old ones, and keeps the list exact.
-        $user->skills()->sync($request->skills); 
+        $user->skills()->sync($request->skills);
 
         return response()->json([
             'message' => 'Skills updated successfully',
-            'user_skills' => $user->skills
+            'user_skills' => $user->skills,
         ]);
     }
 
@@ -30,7 +30,7 @@ class ProfileController extends Controller
     public function updateCareer(Request $request)
     {
         $request->validate([
-            'career_id' => 'required|exists:careers,id'
+            'career_id' => 'required|exists:careers,id',
         ]);
 
         $user = $request->user();
@@ -39,7 +39,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Career goal updated successfully',
-            'user' => $user->load('career') // Return user with new career details
+            'user' => $user->load('career'), // Return user with new career details
         ]);
     }
 }

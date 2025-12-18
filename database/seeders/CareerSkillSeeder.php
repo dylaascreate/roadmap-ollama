@@ -22,7 +22,7 @@ class CareerSkillSeeder extends Seeder
         $sql = Skill::firstOrCreate(['name' => 'SQL']);
 
         // 2. Create Careers & Attach Skills
-        
+
         // Frontend
         $fe = Career::firstOrCreate(['name' => 'Frontend Developer']);
         $fe->skills()->syncWithoutDetaching([$html->id, $css->id, $js->id, $vue->id]);
@@ -38,10 +38,10 @@ class CareerSkillSeeder extends Seeder
         // ==========================================
         // 3. SKILL USER SEEDER (Added as requested)
         // ==========================================
-        
+
         // Ensure User 1 (Ali) exists
         $user = User::firstOrCreate(
-            ['email' => 'ali@test.com'], 
+            ['email' => 'ali@example.com'],
             ['name' => 'Ali Test', 'password' => bcrypt('password')]
         );
 

@@ -1,6 +1,12 @@
-# Test Query Notes
+## Backend : Laravel
 ```
-// 1. Check Skill Dependencies (Locked vs Safe)
+# Run this whenever the code looks messy:
+./vendor/bin/pint
+```
+## SQL : Postgresql
+#### 1. Check Skill Dependencies (Locked vs Safe)
+```
+-- 1. Check Skill Dependencies (Locked vs Safe)
 SELECT 
     s.id, 
     s.name, 
@@ -10,8 +16,9 @@ FROM skills s
 LEFT JOIN skill_user su ON s.id = su.skill_id
 GROUP BY s.id, s.name;
 ```
+#### 2. Check Career Dependencies
 ```
-// 2. Check Career Dependencies
+-- 2. Check Career Dependencies
 SELECT 
     c.id, 
     c.name, 
@@ -21,8 +28,9 @@ FROM careers c
 LEFT JOIN users u ON c.id = u.career_id
 GROUP BY c.id, c.name;
 ```
+#### 3. The "Who is it?" Query (Deep Dive)
 ```
-// 3. The "Who is it?" Query (Deep Dive)
+-- 3. The "Who is it?" Query (Deep Dive)
 SELECT 
     u.id as user_id, 
     u.name as user_name, 
@@ -39,8 +47,13 @@ Testing Strategy:
 3. Find a skill with SAFE status.
 4. Try to delete it in Postman. -> Expect Success.
 
-### Run this whenever the code looks messy:
+
+## Python : Flask
 ```
-# Laravel/pint
-./vendor/bin/pint
+# activate venv scripts
+.\venv\Scripts\activate
+
+# scan local pickle file
+picklescan -p .\devnexus_recommender.pkl
+
 ```

@@ -24,14 +24,16 @@ class SkillController extends Controller
     public function store(Request $request)
     {
         $request->validate(['name' => 'required|unique:skills,name']);
+
         return Skill::create(['name' => $request->name]);
     }
 
     // Update skill name
     public function update(Request $request, Skill $skill)
     {
-        $request->validate(['name' => 'required|unique:skills,name,' . $skill->id]);
+        $request->validate(['name' => 'required|unique:skills,name,'.$skill->id]);
         $skill->update(['name' => $request->name]);
+
         return $skill;
     }
 
@@ -42,20 +44,21 @@ class SkillController extends Controller
         if ($skill->users()->count() > 0) {
             return response()->json([
                 'message' => 'Cannot delete skill. It is currently assigned to users.',
-                'user_count' => $skill->users()->count()
+                'user_count' => $skill->users()->count(),
             ], 409); // 409 = Conflict
         }
 
         // 2. Also check if it's required by any Careers (Optional but recommended)
         if ($skill->careers()->count() > 0) {
-             return response()->json([
+            return response()->json([
                 'message' => 'Cannot delete skill. It is required by a Career path.',
-                'career_count' => $skill->careers()->count()
+                'career_count' => $skill->careers()->count(),
             ], 409);
         }
 
         // 3. Safe to delete
         $skill->delete();
+
         return response()->json(['message' => 'Skill deleted successfully']);
     }
 }

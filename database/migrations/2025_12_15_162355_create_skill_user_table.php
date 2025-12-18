@@ -9,17 +9,18 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-public function up()
-{
-    Schema::create('skill_user', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('user_id')->constrained()->onDelete('cascade');
-        $table->foreignId('skill_id')->constrained()->onDelete('cascade');
-        // Prevent duplicate entries (User can't have 'PHP' twice)
-        $table->unique(['user_id', 'skill_id']); 
-        $table->timestamps();
-    });
-}
+    public function up()
+    {
+        Schema::create('skill_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('skill_id')->constrained()->onDelete('cascade');
+            // Prevent duplicate entries (User can't have 'PHP' twice)
+            $table->unique(['user_id', 'skill_id']);
+            $table->timestamps();
+        });
+    }
+
     /**
      * Reverse the migrations.
      */
