@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CareerController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RoadmapController;
 use App\Http\Controllers\Api\SkillController;
+use App\Http\Controllers\Api\CourseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // User Profile
     Route::post('/profile/skills', [ProfileController::class, 'updateSkills']);
     Route::post('/profile/career', [ProfileController::class, 'updateCareer']);
+
+    Route::post('/course/synergy', [CourseController::class, 'getSynergy']);
 
 });
 

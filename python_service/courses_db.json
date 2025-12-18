@@ -136,6 +136,7 @@
     {
         "course_code": "DES3023",
         "course_name": "Software Requirements and Specifications",
+        "next_course_code": "DES3043",
         "clos": [
             "CLO1: Create contents of a requirement document that comprise of suitable representations and solutions based on a given problem domain.",
             "CLO2: Build high quality requirements models using suitable digital applications/tools.",

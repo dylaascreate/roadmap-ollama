@@ -10,317 +10,260 @@ app = Flask(__name__)
 CORS(app)
 
 # ==========================================
-# 1. DATABASE CONFIGURATION
+# 1. CONFIGURATION & RESOURCES
 # ==========================================
-DB_CONFIG = {
-    'dbname': 'devnexus_db',
-    'user': 'postgres',
-    'password': 'postgres',
-    'host': 'localhost',
-    'port': '5432'
-}
-
+DB_CONFIG = {'dbname': 'devnexus_db', 'user': 'postgres', 'password': 'postgres', 'host': 'localhost', 'port': '5432'}
 MODEL_PATH = 'devnexus_recommender.pkl'
 COURSES_DB_PATH = 'courses_db.json'
 OLLAMA_API_URL = 'http://localhost:11434/api/generate'
 OLLAMA_MODEL = 'gpt-oss:120b-cloud' 
 
-# ==========================================
-# 2. LOAD RESOURCES
-# ==========================================
-print("⏳ Loading AI Model...")
-try:
-    model = joblib.load(MODEL_PATH)
-    print("✅ AI Model Loaded.")
-except:
-    print("❌ Model missing. Run train_model.py first.")
-    model = None
-
+print("⏳ Loading AI Model & JSON Resources...")
+model = joblib.load(MODEL_PATH)
 course_lookup = {}
-try:
-    with open(COURSES_DB_PATH, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-        for c in data:
-            course_lookup[c['course_code']] = c
-    print(f"✅ Indexed {len(course_lookup)} courses from JSON.")
-except:
-    print("❌ Error: courses_db.json missing.")
+with open(COURSES_DB_PATH, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+    for c in data:
+        course_lookup[c['course_code']] = c
 
 # ==========================================
-# 3. HELPER FUNCTIONS
+# 2. THE CENTRALIZED AI ENGINE
+# ==========================================
+def call_ollama(prompt, is_json=False):
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+    if is_json:
+        payload["format"] = "json"
+
+    try:
+        response = requests.post(OLLAMA_API_URL, json=payload, timeout=300) # Increased timeout
+        
+        # Check if response is empty string
+        if not response.text:
+            print("❌ Ollama returned an empty body.")
+            return None
+            
+        result = response.json().get('response', '').strip()
+        
+        if is_json:
+            return json.loads(result)
+        return result
+    except json.JSONDecodeError as e:
+        print(f"⚠️ JSON Parsing Error: {e}. Raw Response: {response.text[:100]}")
+        return None
+    except Exception as e:
+        print(f"⚠️ Connection Error: {e}")
+        return None
+
+# ==========================================
+# 3. DB HELPER FUNCTIONS
 # ==========================================
 def get_db_connection():
-    try:
-        return psycopg2.connect(**DB_CONFIG)
-    except Exception as e:
-        print(f"⚠️ DB Connection Error: {e}")
-        return None
+    try: return psycopg2.connect(**DB_CONFIG)
+    except: return None
 
 def get_user_profile(user_id):
     conn = get_db_connection()
     if not conn: return [], []
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        # 1. Get User's existing skills
-        cur.execute("""
-            SELECT s.name FROM skills s
-            JOIN skill_user su ON s.id = su.skill_id
-            WHERE su.user_id = %s
-        """, (user_id,))
-        # Use a set() for O(1) lookup speed when comparing with course skills later
-        user_skills = {row['name'].lower() for row in cur.fetchall()}
-        # 2. Get Completed Courses
-            cur.execute("""
-                SELECT course_code FROM course_user 
-                WHERE user_id = %s AND status = 'completed'
-            """, (user_id,))
-            completed_courses = [row['course_code'] for row in cur.fetchall()]
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT s.name FROM skills s JOIN skill_user su ON s.id = su.skill_id WHERE su.user_id = %s", (user_id,))
+    user_skills = {row['name'].lower() for row in cur.fetchall()}
+    cur.execute("SELECT course_code FROM course_user WHERE user_id = %s AND status = 'completed'", (user_id,))
+    completed = [row['course_code'] for row in cur.fetchall()]
+    conn.close()
+    return list(user_skills), completed
 
-            conn.close()
-            return list(user_skills), completed_courses
-        
-    except Exception as e:
-        print(f"⚠️ Profile Query Error: {e}")
-        if conn: conn.close()
-        return [], []
-
-def get_next_course_from_db(current_code):
-    conn = get_db_connection()
-    if not conn: return None
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT next_course_code FROM courses WHERE code = %s", (current_code,))
-        result = cur.fetchone()
-        conn.close()
-        if result and result[0]: return result[0]
-        return None
-    except Exception as e:
-        print(f"⚠️ Roadmap Query Error: {e}")
-        return None
-
-# ==========================================
-# 4. MAIN LOGIC (RAG IMPLEMENTATION)
-# ==========================================
-def generate_recommendation(user_query, user_id=None):
-    if not model: return {"error": "AI not ready."}
-
-    # STEP 1: PREDICTION (The Classifier)
-    try:
-        prediction = model.predict([user_query])[0]
-        predicted_code = prediction.split(' ')[0]
-    except:
-        return {"message": "I couldn't understand your request."}
-
-    # STEP 2: RETRIEVAL (The "R" in RAG)
-    course_details = course_lookup.get(predicted_code)
-    if not course_details:
-        return {"message": f"Recommended {predicted_code}, but details are missing."}
+def analyze_skill_synergy(user_skills, course_name, syllabus_skills):
+    # If Python logic missed it, this is the AI's final instruction
+    prompt = f"""
+    [INST]
+    Analyze these skills: {', '.join(user_skills)}
+    Course: {course_name}
     
-    response = {
-        "course_code": predicted_code,
-        "course_name": course_details['course_name'],
-        # Default message (will be overwritten by Ollama)
-        "message": f"Based on your interest, we recommend: <b>{course_details['course_name']}</b>"
+    IMPORTANT: 
+    - If the student skills list is empty, return exactly: []
+    - Only analyze the skills provided. DO NOT invent new skills.
+    
+    Return a JSON array:
+    [
+      {{
+        "foundation_skill": "...",
+        "target_concept": "...",
+        "deep_analysis": "..."
+      }}
+    ]
+    [/INST]
+    """
+    return call_ollama(prompt, is_json=True) or []
+
+# ==========================================
+# 4. RAG SPECIALIST FUNCTIONS (Restored Logic)
+# ==========================================
+
+def generate_ollama_message(user_query, course_name, skills, clos, context=""):
+    """Restored: Explains the Syllabus-to-Industry Link."""
+    prompt = f"""
+    You are an Academic & Career Advisor. 
+    User Query: "{user_query}"
+    Course: {course_name}
+    University Syllabus (CLOs): {', '.join(clos)}
+    Industry Tools: {', '.join(skills)}
+
+    Task:
+    Explain the bridge between the University Syllabus and Industry Demand in 3 sentences:
+    1. Connect a specific University CLO to a real-world project.
+    2. Explain how an industry tool (like {skills[0] if skills else 'relevant tools'}) applies that CLO.
+    3. Explain why this makes the student more employable.
+    """
+    return call_ollama(prompt) or f"We recommend {course_name} based on your goals."
+
+def get_industry_bridge_skills(course_name, syllabus_skills):
+    """Restored: Suggests 3 modern tools via AI."""
+    prompt = f"Given course '{course_name}' teaching {syllabus_skills}, suggest 3 modern 2025 industry tools. Return ONLY tool names separated by commas."
+    raw = call_ollama(prompt)
+    if raw:
+        tools = [s.strip() for s in raw.split(',')]
+        return [f"{t} (Industry Choice)" for t in tools[:3]]
+    return []
+
+def analyze_skill_synergy(user_skills, course_name, syllabus_skills):
+    # Simplified, high-instruction prompt
+    prompt = f"""
+    [INST]
+    Analyze these student skills: {', '.join(user_skills)}
+    Target Course: {course_name}
+    
+    Return ONLY a JSON array with 2 objects. Use this structure:
+    [
+      {{
+        "foundation_skill": "skill name",
+        "target_concept": "course concept",
+        "deep_analysis": "explanation"
+      }}
+    ]
+    [/INST]
+    """
+    # Force JSON mode in the call
+    return call_ollama(prompt, is_json=True) or []
+
+# ==========================================
+# 5. API ROUTES
+# ==========================================
+@app.route('/health', methods=['GET'])
+def health():
+    """Checks if the service and the AI model are ready."""
+    status = {
+        "service": "online",
+        "model_loaded": model is not None,
+        "ollama_connection": False
     }
-    required_skills = course_details.get('associated_skills', [])
-
-    # STEP 3: LOGIC & GENERATION
-    if user_id:
-        print(f"🔎 Checking Profile for User ID: {user_id}")
-        user_skills, completed_courses = get_user_profile(user_id) # <--- Variable defined here!
-
-        # [SCENARIO A: REDIRECT IF COMPLETED]
-        if predicted_code in completed_courses:
-            next_course_code = get_next_course_from_db(predicted_code)
-            
-            if next_course_code:
-                # Switch to Next Course
-                print(f"🔀 Redirecting: {predicted_code} -> {next_course_code}")
-                predicted_code = next_course_code
-                course_details = course_lookup.get(predicted_code)
-                required_skills = course_details.get('associated_skills', [])
-
-                response['course_code'] = predicted_code
-                response['course_name'] = course_details['course_name']
-
-                # 🔥 RAG GENERATION (Redirect Context)
-                response['message'] = generate_ollama_message(
-                    user_query, 
-                    course_details['course_name'], 
-                    required_skills,
-                    context=f"Student finished the previous course and is leveling up."
-                )
-            else:
-                response['message'] = f"You have already mastered <b>{predicted_code}</b>! No further steps defined."
-                response['status'] = 'completed'
-                return response
-
-        # [SCENARIO B: NORMAL RECOMMENDATION]
-        else:
-            # 🔥 RAG GENERATION (Standard Context)
-            response['message'] = generate_ollama_message(
-                user_query, 
-                course_details['course_name'], 
-                required_skills,
-                context="Student wants to learn this topic."
-            )
-
-        # --- STEP 5: GAP ANALYSIS ---
-        learned = []
-        to_learn = []
+    # Check if Ollama is actually reachable
+    try:
+        response = requests.get('http://localhost:11434/api/tags', timeout=2)
+        if response.status_code == 200:
+            status["ollama_connection"] = True
+    except:
+        pass
         
-        # Get the official list from your JSON Memory
-        official_course_skills = final_details.get('associated_skills', [])
+    return jsonify(status)
 
-        for req in official_course_skills:
-            # Clean the string (lowercase and remove extra info in brackets)
-            # e.g., "Postman (API Testing)" -> "postman"
-            clean_req = req.split('(')[0].strip().lower()
-            
-            # Check if this cleaned skill exists in the user's DB profile
-            is_learned = any(u_s in clean_req or clean_req in u_s for u_s in user_skills)
-            
-            if is_learned:
-                learned.append(req)
-            else:
-                to_learn.append(req)
+@app.route('/sync-courses', methods=['GET'])
+def sync_courses():
+    """Returns basic info AND roadmap links for all courses."""
+    summary = []
+    for code, details in course_lookup.items():
+        summary.append({
+            "code": code,
+            "name": details['course_name'],
+            "next_course_code": details.get('next_course_code') # <--- Add this!
+        })
+    return jsonify(summary)
 
-        # Add the results to the response
-        response['skills_you_know'] = learned
-        response['skills_to_learn'] = to_learn
-
-    else:
-        # Guest User - Simple RAG
-        response['message'] = generate_ollama_message(
-            user_query, 
-            course_details['course_name'], 
-            required_skills,
-            context="Guest user exploring topics."
-        )
-        response['skills_to_learn'] = required_skills
-
-    return response
-
-# ==========================================
-# 5. API ROUTE
-# ==========================================
 @app.route('/recommend', methods=['POST'])
 def recommend():
     data = request.json
-    return jsonify(generate_recommendation(data.get('query', ''), data.get('user_id')))
-
-def generate_ollama_message(user_query, course_name, skills, context=""):
-    # The 'A' (Augmentation) in RAG
-    prompt = f"""
-    You are an Academic Advisor. 
-    User Goal: "{user_query}"
-    Course: {course_name}
-    Official Learning Outcomes (CLOs): {', '.join(clos)}
-    Industry Skills taught: {', '.join(skills[:3])}
-
-    Task:
-    Write a 3-sentence recommendation. 
-    - Sentence 1: Explain how one specific CLO directly helps their goal.
-    - Sentence 2: Mention a specific industry skill they will master.
-    - Sentence 3: A motivational closing.
-    """
-
-    print(f"🤖 CONNECTING TO OLLAMA ({OLLAMA_MODEL})...") # <--- Debug Print
-
-    try:
-        payload = {
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False
-        }
-        
-        # 1. Check if we can reach the server
-        response = requests.post(OLLAMA_API_URL, json=payload)
-        
-        # 2. Check the status code
-        print(f"📡 OLLAMA STATUS: {response.status_code}") # <--- Debug Print
-
-        if response.status_code == 200:
-            print("✅ Success! Message received.")
-            return response.json()['response'].strip()
-        else:
-            print(f"❌ OLLAMA FAILED: {response.text}") # <--- Print the error message from Ollama
-            return f"Based on your interest, we recommend: {course_name}"
-            
-    except Exception as e:
-        print(f"⚠️ CRITICAL ERROR: {e}") # <--- This will tell us if it's a connection issue
-        return f"Based on your interest, we recommend: {course_name}"
-
-
-def get_industry_bridge_skills(course_name, syllabus_skills):
-    """
-    RAG Expansion: Connects academic topics to modern industry tools.
-    """
-    prompt = f"""
-    As an industry expert, look at this university course: "{course_name}".
-    The official syllabus teaches: {', '.join(syllabus_skills)}.
+    query = data.get('query', '')
+    u_id = data.get('user_id')
     
-    Task: Suggest 3 modern, in-demand industry tools or "trending" skills 
-    that a student should learn alongside this to be job-ready in 2025.
+    # 1. Prediction
+    prediction = model.predict([query])[0]
+    p_code = prediction.split(' ')[0]
     
-    Rules:
-    - Only return the names of the 3 skills/tools.
-    - Separate them with commas.
-    - Example: Docker, Kubernetes, AWS Lambda
-    """
+    # 2. Safety Check: Does this course exist in our JSON?
+    final_code = p_code
+    final_details = course_lookup.get(p_code)
+    
+    if not final_details:
+        return jsonify({"error": "Course not found in syllabus mapping"}), 404
 
-    try:
-        response = requests.post(OLLAMA_API_URL, json={
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False
-        }, timeout=8)
-        
-        if response.status_code == 200:
-            raw_text = response.json()['response'].strip()
-            # Convert "Tool1, Tool2, Tool3" into a clean list
-            bridge_skills = [s.strip() for s in raw_text.split(',')]
-            return [f"{s} (Industry Choice)" for s in bridge_skills[:3]]
-    except:
-        return [] # Fallback to empty if AI is slow
-    return []
+    # 3. State Initialization
+    u_skills = []
+    completed = [] # Define here to avoid NameError for guests
+    context = "User exploration."
 
-# def expand_skills_with_ollama(course_name, existing_skills):
-#     """
-#     Asks Ollama to suggest 3 modern, complementary skills.
-#     """
-#     prompt = f"""
-#     Context:
-#     Course: "{course_name}"
-#     Current Syllabus Skills: {', '.join(existing_skills)}
+    # 4. Profile Check & Roadmap Redirection
+    if u_id:
+        u_skills, completed = get_user_profile(u_id)
+        if p_code in completed:
+            next_c = get_next_course_from_db(p_code)
+            if next_c:
+                final_code = next_c
+                final_details = course_lookup.get(final_code)
+                context = f"User finished {p_code}. Redirecting to next level: {final_code}."
+            else:
+                return jsonify({"message": f"You've already mastered {p_code}!", "status": "completed"})
 
-#     Task:
-#     Suggest exactly 3 modern, industry-standard tools or concepts that complement this list.
-#     Return ONLY the 3 skills separated by commas. Do not write sentences.
-#     Example Output: Docker, Kubernetes, AWS Lambda
-#     """
+    # 5. Enrichment (RAG)
+    syllabus_skills = final_details.get('associated_skills', [])
+    clos = final_details.get('clos', [])
+    
+    ai_msg = generate_ollama_message(query, final_details['course_name'], syllabus_skills, clos, context)
+    ind_extras = get_industry_bridge_skills(final_details['course_name'], syllabus_skills)
+    
+    # 6. Gap Analysis
+    learned = [s for s in syllabus_skills if any(u.lower() in s.lower() for u in u_skills)]
+    to_learn = [s for s in syllabus_skills if s not in learned]
 
-#     try:
-#         payload = {
-#             "model": "llama3.2", # <--- Ensure this matches your model
-#             "prompt": prompt,
-#             "stream": False
-#         }
-        
-#         response = requests.post("http://localhost:11434/api/generate", json=payload)
-        
-#         if response.status_code == 200:
-#             text = response.json()['response'].strip()
-#             # Clean up the text to get a nice list
-#             new_skills = [s.strip() for s in text.split(',')]
-#             # Add a tag so the user knows these came from AI
-#             return [f"{s} (AI Suggested)" for s in new_skills]
-#         return []
-            
-#     except:
-#         return []
-        
+    return jsonify({
+        "course_code": final_code,
+        "course_name": final_details['course_name'],
+        "message": ai_msg,
+        "academic_outcomes": clos,
+        "industry_recommendations": ind_extras,
+        "skills_to_learn": to_learn,
+        "skills_you_know": learned
+    })
 
+@app.route('/synergy', methods=['POST'])
+def synergy():
+    data = request.json
+    u_id = data.get('user_id')
+    
+    # 1. Fetch User Skills from DB
+    user_skills, _ = get_user_profile(u_id)
+    
+    # 2. SAFETY CHECK: If the list is empty, stop here!
+    if not user_skills:
+        return jsonify({
+            "synergy_analysis": [],
+            "foundation_skills": [],
+            "message": "You haven't added any skills to your profile yet! Add skills like Java or SQL to see how they link to this course."
+        })
+
+    # 3. If they HAVE skills, proceed with AI analysis
+    course = course_lookup.get(data.get('course_code'))
+    analysis = analyze_skill_synergy(user_skills, course['course_name'], course.get('associated_skills', []))
+    
+    return jsonify({
+        "synergy_analysis": analysis, 
+        "foundation_skills": user_skills
+    })
+    
+# ==========================================
+#  START THE SERVER
+# ==========================================
 if __name__ == '__main__':
-    print("🚀 DevNexus AI running on Port 5001")
+    # This is where the message is printed to your terminal
+    print("🚀 DevNexus AI running on Port 5001") 
+    
+    # This is the actual command that opens the port
     app.run(port=5001, debug=True)
