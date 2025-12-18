@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('skill_synergies', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('user_id')->constrained()->onDelete('cascade');
-    $table->string('course_code');
-    $table->string('foundation_skill'); // e.g., "Java"
-    $table->string('target_concept');    // e.g., "UML Modeling"
-    $table->text('deep_analysis');       // The 2-sentence explanation
-    $table->timestamps();
-});
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('course_code');
+            $table->string('foundation_skill'); // e.g., "Java"
+            $table->string('target_concept');    // e.g., "UML Modeling"
+            $table->text('deep_analysis');       // The 2-sentence explanation
+            $table->timestamps();
+        });
     }
 
     /**

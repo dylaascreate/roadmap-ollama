@@ -15,7 +15,7 @@ class SkillSynergy extends Model
         'course_code',
         'foundation_skill',
         'target_concept',
-        'deep_analysis'
+        'deep_analysis',
     ];
 
     /**

@@ -12,22 +12,126 @@ CORS(app)
 # ==========================================
 # 1. CONFIGURATION & RESOURCES
 # ==========================================
-DB_CONFIG = {'dbname': 'devnexus_db', 'user': 'postgres', 'password': 'postgres', 'host': 'localhost', 'port': '5432'}
-MODEL_PATH = 'devnexus_recommender.pkl'
-COURSES_DB_PATH = 'courses_db.json'
-OLLAMA_API_URL = 'http://localhost:11434/api/generate'
-OLLAMA_MODEL = 'gpt-oss:120b-cloud' 
+# Update this with your actual DB password
+DB_CONFIG = {
+    'dbname': 'devnexus_db', 
+    'user': 'postgres', 
+    'password': 'postgres', 
+    'host': 'localhost', 
+    'port': '5432'
+}
 
-print("⏳ Loading AI Model & JSON Resources...")
-model = joblib.load(MODEL_PATH)
-course_lookup = {}
-with open(COURSES_DB_PATH, 'r', encoding='utf-8') as f:
-    data = json.load(f)
-    for c in data:
-        course_lookup[c['course_code']] = c
+MODEL_PATH = 'devnexus_recommender.pkl'
+OLLAMA_API_URL = 'http://localhost:11434/api/generate'
+OLLAMA_MODEL = 'gpt-oss:120b-cloud' # Or 'mistral', 'llama3'
+
+print("⏳ Loading Machine Learning Model...")
+try:
+    model = joblib.load(MODEL_PATH)
+    print("✅ Model Loaded!")
+except Exception as e:
+    print(f"❌ Error loading .pkl model: {e}")
+    model = None
 
 # ==========================================
-# 2. THE CENTRALIZED AI ENGINE
+# 2. DB HELPER FUNCTIONS (The "R" in RAG)
+# ==========================================
+def get_db_connection():
+    try: 
+        return psycopg2.connect(**DB_CONFIG)
+    except Exception as e: 
+        print(f"❌ DB Connection Error: {e}")
+        return None
+
+def get_course_details_from_db(course_code):
+    """
+    Fetches Course Content (Outline, Skills) directly from PostgreSQL.
+    This replaces the old JSON lookup.
+    """
+    conn = get_db_connection()
+    if not conn: return None
+
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # We fetch the outline and skills which are likely stored as JSON/Text in DB
+    query = """
+        SELECT 
+            code, 
+            name as course_name, 
+            next_course_code,
+            learning_outline,   
+            associated_skills   
+        FROM courses 
+        WHERE code = %s
+    """
+    cur.execute(query, (course_code,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row:
+        # DATA CLEANING: Convert DB text fields back to Python Lists
+        # 1. Handle Outline
+        if isinstance(row['learning_outline'], str):
+            try:
+                row['course_content_outline'] = json.loads(row['learning_outline'])
+            except:
+                row['course_content_outline'] = row['learning_outline'].split('\n')
+        else:
+            row['course_content_outline'] = row['learning_outline'] if row['learning_outline'] else []
+
+        # 2. Handle Skills
+        if isinstance(row['associated_skills'], str):
+            try:
+                row['associated_skills'] = json.loads(row['associated_skills'])
+            except:
+                row['associated_skills'] = row['associated_skills'].split(',')
+        else:
+             row['associated_skills'] = row['associated_skills'] if row['associated_skills'] else []
+             
+        return row
+    return None
+
+def get_user_profile(user_id):
+    """Fetches Skills, Completed Courses, and Career Goal."""
+    conn = get_db_connection()
+    if not conn: 
+        return [], [], "Technology Professional"
+    
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # 1. Fetch User Skills (Pivot Table)
+    cur.execute("""
+        SELECT s.name 
+        FROM skills s 
+        JOIN skill_user su ON s.id = su.skill_id 
+        WHERE su.user_id = %s
+    """, (user_id,))
+    user_skills = {row['name'].lower() for row in cur.fetchall()}
+    
+    # 2. Fetch Completed Courses
+    cur.execute("""
+        SELECT course_code 
+        FROM course_user 
+        WHERE user_id = %s AND status = 'completed'
+    """, (user_id,))
+    completed = [row['course_code'] for row in cur.fetchall()]
+    
+    # 3. Fetch Career Name
+    cur.execute("""
+        SELECT c.name as career_title 
+        FROM users u
+        JOIN careers c ON u.career_id = c.id
+        WHERE u.id = %s
+    """, (user_id,))
+    career_row = cur.fetchone()
+    career_goal = career_row['career_title'] if career_row else "Software Engineer"
+    
+    conn.close()
+    return list(user_skills), completed, career_goal
+
+# ==========================================
+# 3. AI ENGINE
 # ==========================================
 def call_ollama(prompt, is_json=False):
     payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
@@ -35,90 +139,35 @@ def call_ollama(prompt, is_json=False):
         payload["format"] = "json"
 
     try:
-        response = requests.post(OLLAMA_API_URL, json=payload, timeout=300) # Increased timeout
-        
-        # Check if response is empty string
-        if not response.text:
-            print("❌ Ollama returned an empty body.")
-            return None
-            
+        response = requests.post(OLLAMA_API_URL, json=payload, timeout=300)
+        if not response.text: return None
         result = response.json().get('response', '').strip()
-        
-        if is_json:
-            return json.loads(result)
+        if is_json: return json.loads(result)
         return result
-    except json.JSONDecodeError as e:
-        print(f"⚠️ JSON Parsing Error: {e}. Raw Response: {response.text[:100]}")
-        return None
     except Exception as e:
-        print(f"⚠️ Connection Error: {e}")
+        print(f"⚠️ AI Error: {e}")
         return None
 
-# ==========================================
-# 3. DB HELPER FUNCTIONS
-# ==========================================
-def get_db_connection():
-    try: return psycopg2.connect(**DB_CONFIG)
-    except: return None
-
-def get_user_profile(user_id):
-    conn = get_db_connection()
-    if not conn: return [], []
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT s.name FROM skills s JOIN skill_user su ON s.id = su.skill_id WHERE su.user_id = %s", (user_id,))
-    user_skills = {row['name'].lower() for row in cur.fetchall()}
-    cur.execute("SELECT course_code FROM course_user WHERE user_id = %s AND status = 'completed'", (user_id,))
-    completed = [row['course_code'] for row in cur.fetchall()]
-    conn.close()
-    return list(user_skills), completed
-
-def analyze_skill_synergy(user_skills, course_name, syllabus_skills):
-    # If Python logic missed it, this is the AI's final instruction
+def generate_ollama_message(user_query, course_name, skills, outline, career_goal, context=""):
     prompt = f"""
     [INST]
-    Analyze these skills: {', '.join(user_skills)}
-    Course: {course_name}
+    Context: You are a Career Mentor for a student wanting to be a {career_goal}.
+    Student Query: "{user_query}"
+    Course: "{course_name}"
+    System Note: {context}
     
-    IMPORTANT: 
-    - If the student skills list is empty, return exactly: []
-    - Only analyze the skills provided. DO NOT invent new skills.
+    Syllabus Topics: {', '.join(outline[:6])}
     
-    Return a JSON array:
-    [
-      {{
-        "foundation_skill": "...",
-        "target_concept": "...",
-        "deep_analysis": "..."
-      }}
-    ]
+    Task:
+    1. Explain why this course is essential for a {career_goal}.
+    2. Pick one topic from the syllabus and link it to a real-world job task.
+    3. Be encouraging and concise.
     [/INST]
     """
-    return call_ollama(prompt, is_json=True) or []
-
-# ==========================================
-# 4. RAG SPECIALIST FUNCTIONS (Restored Logic)
-# ==========================================
-
-def generate_ollama_message(user_query, course_name, skills, clos, context=""):
-    """Restored: Explains the Syllabus-to-Industry Link."""
-    prompt = f"""
-    You are an Academic & Career Advisor. 
-    User Query: "{user_query}"
-    Course: {course_name}
-    University Syllabus (CLOs): {', '.join(clos)}
-    Industry Tools: {', '.join(skills)}
-
-    Task:
-    Explain the bridge between the University Syllabus and Industry Demand in 3 sentences:
-    1. Connect a specific University CLO to a real-world project.
-    2. Explain how an industry tool (like {skills[0] if skills else 'relevant tools'}) applies that CLO.
-    3. Explain why this makes the student more employable.
-    """
-    return call_ollama(prompt) or f"We recommend {course_name} based on your goals."
+    return call_ollama(prompt)
 
 def get_industry_bridge_skills(course_name, syllabus_skills):
-    """Restored: Suggests 3 modern tools via AI."""
-    prompt = f"Given course '{course_name}' teaching {syllabus_skills}, suggest 3 modern 2025 industry tools. Return ONLY tool names separated by commas."
+    prompt = f"For the course '{course_name}', suggest 3 specific modern industry software tools (2025). Return ONLY comma-separated names."
     raw = call_ollama(prompt)
     if raw:
         tools = [s.strip() for s in raw.split(',')]
@@ -126,109 +175,134 @@ def get_industry_bridge_skills(course_name, syllabus_skills):
     return []
 
 def analyze_skill_synergy(user_skills, course_name, syllabus_skills):
-    # Simplified, high-instruction prompt
+    """
+    Sends all skills to AI, but commands it to return ONLY the Top 3 strongest matches.
+    """
     prompt = f"""
     [INST]
-    Analyze these student skills: {', '.join(user_skills)}
-    Target Course: {course_name}
+    You are an Academic Synergy Analyst.
     
-    Return ONLY a JSON array with 2 objects. Use this structure:
+    DATA:
+    1. Student Skills: {', '.join(user_skills)}
+    2. Course: "{course_name}"
+    3. Syllabus Keywords: {', '.join(syllabus_skills[:20])}
+    
+    TASK:
+    1. Compare the Student Skills against the Syllabus.
+    2. Rank them by relevance.
+    3. Select ONLY the TOP 3 skills that provide the biggest advantage.
+    4. Ignore low-relevance skills.
+    
+    OUTPUT:
+    Return a JSON array with exactly 3 objects (or fewer if no skills match). 
+    Do not add introduction text. Use this format:
+    
     [
       {{
-        "foundation_skill": "skill name",
-        "target_concept": "course concept",
-        "deep_analysis": "explanation"
+        "rank": 1,
+        "skill": "The most relevant skill",
+        "match_reason": "One clear sentence explaining the specific advantage."
+      }},
+      {{
+        "rank": 2,
+        "skill": "The second most relevant skill",
+        "match_reason": "..."
       }}
     ]
     [/INST]
     """
-    # Force JSON mode in the call
+    # Force JSON mode
     return call_ollama(prompt, is_json=True) or []
-
 # ==========================================
-# 5. API ROUTES
+# 4. API ROUTES
 # ==========================================
-@app.route('/health', methods=['GET'])
-def health():
-    """Checks if the service and the AI model are ready."""
-    status = {
-        "service": "online",
-        "model_loaded": model is not None,
-        "ollama_connection": False
-    }
-    # Check if Ollama is actually reachable
-    try:
-        response = requests.get('http://localhost:11434/api/tags', timeout=2)
-        if response.status_code == 200:
-            status["ollama_connection"] = True
-    except:
-        pass
-        
-    return jsonify(status)
 
 @app.route('/sync-courses', methods=['GET'])
 def sync_courses():
-    """Returns basic info AND roadmap links for all courses."""
-    summary = []
-    for code, details in course_lookup.items():
-        summary.append({
-            "code": code,
-            "name": details['course_name'],
-            "next_course_code": details.get('next_course_code') # <--- Add this!
-        })
-    return jsonify(summary)
-
+    """
+    Reads directly from the JSON file to bootstrap the Laravel Database.
+    """
+    try:
+        print("📂 Reading from courses_db.json...")
+        # Ensure this filename matches exactly what is in your folder
+        with open('courses_db.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        print(f"✅ Loaded {len(data)} courses from file.")
+        return jsonify(data)
+        
+    except FileNotFoundError:
+        print("❌ Error: courses_db.json not found!")
+        return jsonify({"error": "courses_db.json not found"}), 404
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return jsonify({"error": str(e)}), 500
+    
 @app.route('/recommend', methods=['POST'])
 def recommend():
     data = request.json
     query = data.get('query', '')
     u_id = data.get('user_id')
     
-    # 1. Prediction
+    # 1. Prediction (Using ML Model)
+    if not model: return jsonify({"error": "Model not loaded"}), 500
     prediction = model.predict([query])[0]
     p_code = prediction.split(' ')[0]
     
-    # 2. Safety Check: Does this course exist in our JSON?
-    final_code = p_code
-    final_details = course_lookup.get(p_code)
-    
+    # 2. Fetch Initial Details from DB
+    final_details = get_course_details_from_db(p_code)
     if not final_details:
-        return jsonify({"error": "Course not found in syllabus mapping"}), 404
+        return jsonify({"error": f"Course {p_code} not found in DB"}), 404
 
-    # 3. State Initialization
+    final_code = p_code
+    
+    # 3. Profile & Redirection Logic
     u_skills = []
-    completed = [] # Define here to avoid NameError for guests
+    completed = []
+    career_goal = "Technology Professional"
     context = "User exploration."
 
-    # 4. Profile Check & Roadmap Redirection
     if u_id:
-        u_skills, completed = get_user_profile(u_id)
-        if p_code in completed:
-            next_c = get_next_course_from_db(p_code)
+        u_skills, completed, career_goal = get_user_profile(u_id)
+        
+        # Normalize
+        completed_clean = [c.strip().upper() for c in completed]
+        
+        # REDIRECTION CHECK
+        if p_code.strip().upper() in completed_clean:
+            next_c = final_details.get('next_course_code')
+            
             if next_c:
-                final_code = next_c
-                final_details = course_lookup.get(final_code)
-                context = f"User finished {p_code}. Redirecting to next level: {final_code}."
+                # Fetch NEXT course details from DB
+                next_details = get_course_details_from_db(next_c)
+                if next_details:
+                    final_code = next_c
+                    final_details = next_details
+                    context = f"User mastered {p_code}. Advancing to {final_code}."
             else:
-                return jsonify({"message": f"You've already mastered {p_code}!", "status": "completed"})
+                return jsonify({
+                    "message": f"You have mastered {p_code}!", 
+                    "status": "completed"
+                })
 
-    # 5. Enrichment (RAG)
+    # 4. RAG & Enrichment
+    outline = final_details.get('course_content_outline', [])
     syllabus_skills = final_details.get('associated_skills', [])
-    clos = final_details.get('clos', [])
+    course_name = final_details.get('course_name')
     
-    ai_msg = generate_ollama_message(query, final_details['course_name'], syllabus_skills, clos, context)
-    ind_extras = get_industry_bridge_skills(final_details['course_name'], syllabus_skills)
+    ai_msg = generate_ollama_message(query, course_name, syllabus_skills, outline, career_goal, context)
+    industry_extras = get_industry_bridge_skills(course_name, syllabus_skills)
     
-    # 6. Gap Analysis
     learned = [s for s in syllabus_skills if any(u.lower() in s.lower() for u in u_skills)]
     to_learn = [s for s in syllabus_skills if s not in learned]
 
     return jsonify({
         "course_code": final_code,
-        "course_name": final_details['course_name'],
+        "course_name": course_name,
+        "target_career": career_goal,
         "message": ai_msg,
-        "academic_outcomes": clos,
-        "industry_recommendations": ind_extras,
+        "course_content": outline,
+        "industry_recommendations": industry_extras,
         "skills_to_learn": to_learn,
         "skills_you_know": learned
     })
@@ -237,33 +311,39 @@ def recommend():
 def synergy():
     data = request.json
     u_id = data.get('user_id')
+    course_code = data.get('course_code') # Frontend must send this!
     
     # 1. Fetch User Skills from DB
-    user_skills, _ = get_user_profile(u_id)
+    user_skills, _, _ = get_user_profile(u_id)
     
-    # 2. SAFETY CHECK: If the list is empty, stop here!
+    # Safety: If user has no skills, return empty immediately
     if not user_skills:
         return jsonify({
-            "synergy_analysis": [],
+            "synergy_analysis": [], 
             "foundation_skills": [],
-            "message": "You haven't added any skills to your profile yet! Add skills like Java or SQL to see how they link to this course."
+            "message": "Add skills to your profile to see how they help you in this course!"
         })
 
-    # 3. If they HAVE skills, proceed with AI analysis
-    course = course_lookup.get(data.get('course_code'))
-    analysis = analyze_skill_synergy(user_skills, course['course_name'], course.get('associated_skills', []))
+    # 2. Fetch Course Details from DB (The "R" in RAG)
+    course = get_course_details_from_db(course_code)
+    
+    if not course:
+        return jsonify({"error": f"Course {course_code} not found"}), 404
+
+    # 3. Perform AI Analysis
+    # We pass the cleaned list of skills we fetched from Postgres
+    analysis = analyze_skill_synergy(
+        user_skills, 
+        course['course_name'], 
+        course.get('associated_skills', [])
+    )
     
     return jsonify({
+        "course_name": course['course_name'],
         "synergy_analysis": analysis, 
         "foundation_skills": user_skills
     })
     
-# ==========================================
-#  START THE SERVER
-# ==========================================
 if __name__ == '__main__':
-    # This is where the message is printed to your terminal
-    print("🚀 DevNexus AI running on Port 5001") 
-    
-    # This is the actual command that opens the port
+    print("🚀 DevNexus AI (DB-Connected) running on Port 5001") 
     app.run(port=5001, debug=True)

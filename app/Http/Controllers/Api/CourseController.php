@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\SkillSynergy;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class CourseController extends Controller
@@ -15,8 +15,8 @@ class CourseController extends Controller
 
         // 1. Check if we already analyzed this for the user
         $existing = SkillSynergy::where('user_id', $userId)
-                                ->where('course_code', $courseCode)
-                                ->get();
+            ->where('course_code', $courseCode)
+            ->get();
 
         if ($existing->isNotEmpty()) {
             return response()->json($existing);
@@ -26,7 +26,7 @@ class CourseController extends Controller
         // We send the request to your Flask app (port 5001)
         $response = Http::post('http://localhost:5001/synergy', [
             'user_id' => $userId,
-            'course_code' => $courseCode
+            'course_code' => $courseCode,
         ]);
 
         if ($response->failed()) {

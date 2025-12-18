@@ -11,37 +11,49 @@ return new class extends Migration
      */
     public function up()
     {
-        // 1. Master List of Courses
+        // 1. COURSES TABLE (Master List)
         Schema::create('courses', function (Blueprint $table) {
-        $table->id();
-        // 1. Define the code column and mark it UNIQUE first
-        $table->string('code')->unique(); 
-        $table->string('name');
-        
-        // 2. Define the next_course_code column
-        $table->string('next_course_code')->nullable();
-        
-        $table->timestamps();
-    });
+            $table->id();
+            $table->string('code')->unique(); // e.g., 'DES3023'
+            $table->string('name');           // e.g., 'Software Requirements'
 
-    // 3. Add the Foreign Key in a separate schema update block 
-    // This ensures the table and the UNIQUE 'code' column exist first
-    Schema::table('courses', function (Blueprint $table) {
-        $table->foreign('next_course_code')
-              ->references('code')
-              ->on('courses')
-              ->onDelete('set null');
-    });
+            // Self-referencing FK (Roadmap Link)
+            $table->string('next_course_code')->nullable();
 
-        // 2. History Table (What has the user finished?)
+            // NEW: Store the arrays from your JSON as JSON columns
+            // This maps to 'course_content_outline' in your JSON
+            $table->json('learning_outline')->nullable();
+
+            // This maps to 'associated_skills' in your JSON
+            $table->json('associated_skills')->nullable();
+
+            $table->timestamps();
+        });
+
+        // 2. Add the Self-Referencing Foreign Key
+        // We do this after creating the table to ensure the 'code' index exists
+        Schema::table('courses', function (Blueprint $table) {
+            $table->foreign('next_course_code')
+                ->references('code')
+                ->on('courses')
+                ->onDelete('set null');
+        });
+
+        // 3. COURSE_USER TABLE (History/Progress)
         Schema::create('course_user', function (Blueprint $table) {
             $table->id();
+
+            // Link to User
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
-            // Link to the 'courses' table using the string code
+            // Link to Course (using the string code)
             $table->string('course_code');
-            $table->foreign('course_code')->references('code')->on('courses')->onDelete('cascade');
+            $table->foreign('course_code')
+                ->references('code')
+                ->on('courses')
+                ->onDelete('cascade');
 
+            // Status tracking
             $table->enum('status', ['enrolled', 'completed', 'failed'])->default('enrolled');
             $table->string('grade')->nullable(); // e.g., 'A', 'B'
 
@@ -54,6 +66,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('courses_tables');
+        // Drop 'course_user' first because it depends on 'courses'
+        Schema::dropIfExists('course_user');
+
+        // Then drop 'courses'
+        Schema::dropIfExists('courses');
     }
 };

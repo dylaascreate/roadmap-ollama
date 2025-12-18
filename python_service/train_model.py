@@ -1,33 +1,54 @@
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.svm import LinearSVC  # <--- NEW IMPORTS
-from sklearn.calibration import CalibratedClassifierCV # <--- For probability
+import pickle
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
-import joblib
+from sklearn.metrics import accuracy_score
 
-DATA_FILE = 'dataset.csv'
-
-print(f"📂 Loading dataset from {DATA_FILE}...")
+# 1. Load the new dataset
+print("📂 Loading dataset...")
 try:
-    df = pd.read_csv(DATA_FILE).dropna(subset=['query', 'course_code'])
-except FileNotFoundError:
-    print("❌ dataset.csv missing.")
-    exit()
+    df = pd.read_csv('dataset.csv')
+    
+    # Check if we need to rename columns to match legacy code or use new names
+    # The new generator uses 'text' and 'label'
+    if 'text' in df.columns and 'label' in df.columns:
+        df = df.dropna(subset=['text', 'label'])
+        X = df['text']
+        y = df['label']
+    # Fallback for old CSV format
+    elif 'query' in df.columns and 'course_code' in df.columns:
+        df = df.dropna(subset=['query', 'course_code'])
+        X = df['query']
+        y = df['course_code']
+    else:
+        raise ValueError("CSV columns must be ['text', 'label'] or ['query', 'course_code']")
 
-# USE LINEAR SVC (Better for specific keywords)
-# We wrap it in CalibratedClassifierCV so we can still get probabilities if needed later
-model = make_pipeline(
-    TfidfVectorizer(ngram_range=(1, 2)), # Look at 2-word phrases like "api testing"
-    CalibratedClassifierCV(LinearSVC(dual="auto")) 
-)
+    print(f"✅ Loaded {len(df)} rows of training data.")
 
-X_train, X_test, y_train, y_test = train_test_split(df['query'], df['course_code'], test_size=0.2, random_state=42)
+    # 2. Split Data (Optional, but good for verifying accuracy)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-print("🧠 Training the SVM Model...")
-model.fit(X_train, y_train)
+    # 3. Build the Pipeline
+    # CountVectorizer: Converts text to matrix of token counts
+    # MultinomialNB: The classifier
+    model = make_pipeline(CountVectorizer(), MultinomialNB())
 
-print(f"🎯 Model Accuracy: {model.score(X_test, y_test) * 100:.2f}%")
+    # 4. Train
+    print("🧠 Training the model (this might take a moment)...")
+    model.fit(X_train, y_train)
 
-joblib.dump(model, 'devnexus_recommender.pkl')
-print("✅ Saved new SVM model.")
+    # 5. Evaluate
+    predictions = model.predict(X_test)
+    accuracy = accuracy_score(y_test, predictions)
+    print(f"🎯 Model Accuracy: {accuracy * 100:.2f}%")
+
+    # 6. Save the Model
+    with open('devnexus_recommender.pkl', 'wb') as f:
+        pickle.dump(model, f)
+    
+    print("💾 Model saved as 'devnexus_recommender.pkl'")
+
+except Exception as e:
+    print(f"❌ Error: {e}")
