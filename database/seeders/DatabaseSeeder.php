@@ -18,8 +18,12 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         $this->call([
-            CareerSkillSeeder::class,
             RolesAndPermissionsSeeder::class,
+
+            // Courses Outline
+            CareerSkillSeeder::class,
+            CourseSeeder::class,   
+            CourseUserSeeder::class,
         ]);
     }
 }

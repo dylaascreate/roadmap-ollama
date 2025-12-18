@@ -14,12 +14,10 @@ return new class extends Migration
         Schema::table('roadmaps', function (Blueprint $table) {
             $table->string('status')->default('active')->after('skills'); // active, completed, archived
             $table->integer('progress_percent')->default(0)->after('status');
-            $table->timestamps();
         });
 
         Schema::table('phase_tasks', function (Blueprint $table) {
             $table->boolean('is_completed')->default(false)->after('content');
-            $table->timestamps();
         });
     }
 
