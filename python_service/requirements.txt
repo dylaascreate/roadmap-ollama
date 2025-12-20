@@ -1,0 +1,12 @@
+flask
+flask-cors
+mysql-connector-python 
+joblib 
+scikit-learn 
+pandas
+picklescan
+requests
+psycopg2-binary
+pickle
+ollama
+tqdm

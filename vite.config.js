@@ -19,9 +19,17 @@ export default defineConfig({
             },
         }),
     ],
-    server: {
-        watch: {
-            ignored: ['**/storage/framework/views/**'],
+    server: { 
+        host: '127.0.0.1',  // Force IPv4
+        port: 5173,
+        strictPort: true,
+        hmr: {
+            host: 'localhost', // Force the browser to check localhost
+        },
+    },
+    resolve: {
+        alias: {
+            'vue': 'vue/dist/vue.esm-bundler.js',
         },
     },
 });

@@ -8,13 +8,23 @@ import { createPinia } from 'pinia';
 // Import the Root Component
 import App from './App.vue';
 import Login from './pages/Auth/Login.vue';
-import CreateRoadmap from './pages/Roadmaps/Create.vue';
+import Register from './pages/Auth/Register.vue'; // Fixed typo 'REgister' -> 'Register'
 
-// 1. Define Basic Routes (We will add more later)
+// --- ROADMAP COMPONENTS ---
+import CreateRoadmap from './pages/Roadmaps/Create.vue';       // The Old/Simple Generator
+import SmartGenerator from './pages/Roadmaps/SmartGenerator.vue';
+
+// 1. Define Routes
 const routes = [
     { path: '/', component: { template: '<h1>Welcome to DevNexus</h1>' } },
     { path: '/login', component: Login },
-    { path: '/roadmap/create', component: CreateRoadmap }
+    { path: '/register', component: Register },
+
+    // Old Generator
+    { path: '/roadmap/create', component: CreateRoadmap },
+
+    // ✅ New Smart Generator Route
+    { path: '/roadmap/smart', component: SmartGenerator } 
 ];
 
 // 2. Setup Router

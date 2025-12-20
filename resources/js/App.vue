@@ -1,24 +1,37 @@
 <template>
-    <div class="container">
-        <nav style="padding: 1rem; background: #eee; margin-bottom: 20px;">
-            <router-link to="/" style="margin-right: 10px;">Home</router-link>
-            <router-link to="/roadmap/create" style="margin-right: 10px;">Generate Roadmap</router-link> 
-            <router-link to="/login">Login</router-link>
-        </nav>
-        
-        <router-view></router-view>
-    </div>
+  <AppLayout v-if="layout === 'default'">
+    <router-view />
+  </AppLayout>
+
+  <div v-else class="auth-layout">
+    <router-view />
+  </div>
 </template>
 
 <script setup>
-// Script logic goes here later
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+import AppLayout from './layouts/AppLayout.vue';
+
+const route = useRoute();
+
+// Determine layout based on route meta, default to 'empty' to avoid flash
+const layout = computed(() => {
+  return route.meta.layout || 'empty';
+});
 </script>
 
 <style>
-/* Basic Global Styles */
-body {
-    font-family: sans-serif;
-    margin: 0;
-    padding: 0;
+/* Global Styles can go here */
+body { margin: 0; font-family: sans-serif; background-color: #f5f7fa; }
+.auth-layout { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  min-height: 100vh; 
+  background: #e9ecef; 
 }
+.page-container { max-width: 1200px; margin: 0 auto; }
+.btn-primary { background-color: #008B8B; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block;}
+.btn-primary:hover { background-color: #006666; }
 </style>

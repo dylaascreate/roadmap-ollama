@@ -2,31 +2,31 @@
 
 namespace App\Services;
 
+use App\Models\Roadmap;
 use Cloudstudio\Ollama\Facades\Ollama;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\Roadmap;
 
 class RoadmapService
 {
     /**
      * Coordinate the Two-Step Generation and Saving
      */
-    public function generateAndSave(string $career, string $skills)
+    public function generateAndSave(string $userId, $career, string $skills)
     {
         // Step 1: Generate the Core Roadmap (Phases & Tasks)
         $roadmapData = $this->fetchRoadmapStruct($career, $skills);
-        
+
         // Step 2: Generate Recommendations (Skills & Projects)
         // We pass the generated title/phases context so the recommendation matches the roadmap
         $recData = $this->fetchRecommendations($career, $skills);
 
-        if (!$roadmapData) {
-            throw new \Exception("Failed to generate roadmap structure.");
+        if (! $roadmapData) {
+            throw new \Exception('Failed to generate roadmap structure.');
         }
 
         // Step 3: Save everything together
-        return $this->saveToDatabase($career, $skills, $roadmapData, $recData);
+        return $this->saveToDatabase($userId, $career, $skills, $roadmapData, $recData);
     }
 
     /**
@@ -65,6 +65,7 @@ class RoadmapService
         Goal: $career. Current Skills: $skills.
         1. Suggest 3 modern, complementary tools/skills the user should learn NEXT (exclude current skills).
         2. Suggest 1 impressive portfolio project they can build using these skills.
+        3. STRICT LIMIT: Keep the project description under 100 words.
         RETURN JSON ONLY.
         Schema: $schema";
 
@@ -77,8 +78,7 @@ class RoadmapService
     protected function callAI($prompt)
     {
         try {
-            set_time_limit(600); 
-
+            set_time_limit(600);
 
             $response = Ollama::model(env('OLLAMA_MODEL', 'gpt-oss:120b-cloud'))
                 ->options(['temperature' => 0.3]) // Slightly higher for creativity
@@ -93,7 +93,8 @@ class RoadmapService
             return array_change_key_case($data ?? [], CASE_LOWER);
 
         } catch (\Exception $e) {
-            Log::error("AI Call Failed: " . $e->getMessage());
+            Log::error('AI Call Failed: '.$e->getMessage());
+
             return null;
         }
     }
@@ -101,26 +102,27 @@ class RoadmapService
     /**
      * Database Saving Logic (Merges both AI results)
      */
-    protected function saveToDatabase($career, $skills, $roadmapData, $recData)
+    protected function saveToDatabase($userId, $career, $skills, $roadmapData, $recData)
     {
-        return DB::transaction(function () use ($career, $skills, $roadmapData, $recData) {
-            
+        return DB::transaction(function () use ($userId, $career, $skills, $roadmapData, $recData) {
+
             // 1. Create Roadmap Parent
-            $roadmap = Roadmap::create([
-                'title'  => $roadmapData['title'] ?? "$career Roadmap",
+            $roadmap = Roadmap::create(['user_id' => $userId,
+                // 'title'  => $roadmapData['title'] ?? "$career Roadmap",
+                'title' => $roadmapData['title'],
                 'career' => $career,
-                'skills' => $skills
+                'skills' => $skills,
             ]);
 
             // 2. Save Phases (From Prompt 1)
             $phases = $roadmapData['phases'] ?? ($roadmapData['weeks'] ?? []); // Fallback support
-            if (!empty($phases)) {
+            if (! empty($phases)) {
                 foreach ($phases as $phaseData) {
                     $phase = $roadmap->phases()->create([
-                        'title' => $phaseData['title'] ?? 'Phase'
+                        'title' => $phaseData['title'] ?? 'Phase',
                     ]);
 
-                    if (!empty($phaseData['tasks'])) {
+                    if (! empty($phaseData['tasks'])) {
                         foreach ($phaseData['tasks'] as $taskString) {
                             $phase->tasks()->create(['content' => $taskString]);
                         }
@@ -131,21 +133,21 @@ class RoadmapService
             // 3. Save Suggestions (From Prompt 2)
             if ($recData) {
                 // Skills
-                if (!empty($recData['suggested_skills'])) {
+                if (! empty($recData['suggested_skills'])) {
                     foreach ($recData['suggested_skills'] as $newSkill) {
                         $roadmap->suggestions()->create([
                             'type' => 'skill',
-                            'content' => $newSkill
+                            'content' => $newSkill,
                         ]);
                     }
                 }
 
                 // Project
-                if (!empty($recData['project'])) {
+                if (! empty($recData['project'])) {
                     $proj = is_array($recData['project']) ? $recData['project'][0] : $recData['project'];
                     $roadmap->suggestions()->create([
                         'type' => 'project',
-                        'content' => $proj
+                        'content' => $proj,
                     ]);
                 }
             }
