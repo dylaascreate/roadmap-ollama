@@ -32,7 +32,7 @@ public function up(): void
         $table->id();
         $table->foreignId('roadmap_id')->constrained()->onDelete('cascade');
         $table->string('type'); // "skill" or "project"
-        $table->string('content'); 
+        $table->text('content');
         $table->timestamps();
     });
 }
