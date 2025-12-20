@@ -1,7 +1,7 @@
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import joblib
+import pickle
 import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -21,14 +21,15 @@ DB_CONFIG = {
     'port': '5432'
 }
 
-MODEL_PATH = 'devnexus_recommender.pkl'
+MODEL_PATH = 'devnexus.pkl'
 OLLAMA_API_URL = 'http://localhost:11434/api/generate'
 OLLAMA_MODEL = 'gpt-oss:120b-cloud' # Or 'mistral', 'llama3'
 
 print("⏳ Loading Machine Learning Model...")
 try:
-    model = joblib.load(MODEL_PATH)
-    print("✅ Model Loaded!")
+    with open('devnexus.pkl', 'rb') as f:
+        model = pickle.load(f)
+        print("✅ Model Loaded!")
 except Exception as e:
     print(f"❌ Error loading .pkl model: {e}")
     model = None
@@ -213,10 +214,78 @@ def analyze_skill_synergy(user_skills, course_name, syllabus_skills):
     """
     # Force JSON mode
     return call_ollama(prompt, is_json=True) or []
+
+def get_all_courses_summary():
+    """Fetches a lightweight summary of ALL courses for scanning."""
+    conn = get_db_connection()
+    if not conn: return []
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT code, name, associated_skills FROM courses")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
 # ==========================================
 # 4. API ROUTES
 # ==========================================
+@app.route('/generate-path', methods=['POST'])
+def generate_path():
+    data = request.json
+    career_goal = data.get('career_goal', '')
+    user_skills = data.get('user_skills', []) 
+    
+    # 1. Fetch ALL available courses (The RAG "Library")
+    all_courses = get_all_courses_summary()
+    
+    # Format list for AI: "- CODE: Name (Skills)"
+    courses_str = "\n".join([f"- {c['code']}: {c['name']}" for c in all_courses])
+    
+    # 2. Strict Prompt
+    prompt = f"""
+    [INST]
+    Context: You are a University Advisor.
+    Available Courses Database:
+    {courses_str}
+    
+    Student Goal: "{career_goal}"
+    Student Skills: {', '.join(user_skills)}
+    
+    Task: Select exactly 3 to 5 courses from the Database that form a learning path for this goal.
+    Constraint: Use ONLY the course codes provided. Do not invent courses.
+    
+    Return a JSON array:
+    [
+      {{ "step": 1, "course_code": "CODE", "reason": "Brief reason" }},
+      {{ "step": 2, "course_code": "CODE", "reason": "Brief reason" }}
+    ]
+    [/INST]
+    """
+    
+    # 3. Call AI
+    recommendations = call_ollama(prompt, is_json=True)
+    
+    if not recommendations:
+        return jsonify({"error": "AI failed to generate path"}), 500
 
+    # 4. Hydrate with Real DB Data
+    final_roadmap = []
+    for step in recommendations:
+        # Fetch full details (Description, Topics) from DB for each selected course
+        details = get_course_details_from_db(step['course_code'])
+        if details:
+            final_roadmap.append({
+                "step": step['step'],
+                "course_code": details['code'],
+                "course_name": details['course_name'],
+                "reason": step['reason'],
+                "content": details['course_content_outline'] # Real Syllabus!
+            })
+            
+    return jsonify({
+        "career_goal": career_goal,
+        "academic_path": final_roadmap
+    })
+    
 @app.route('/sync-courses', methods=['GET'])
 def sync_courses():
     """
@@ -259,7 +328,7 @@ def recommend():
     # 3. Profile & Redirection Logic
     u_skills = []
     completed = []
-    career_goal = "Technology Professional"
+    career_goal = "Software Engineer"
     context = "User exploration."
 
     if u_id:

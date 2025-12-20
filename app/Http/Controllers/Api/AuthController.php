@@ -44,24 +44,28 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (! Auth::attempt($credentials)) {
-            // ⬇️ THIS IS THE FIX: Add 401 here
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        if (Auth::attempt($credentials)) {
+            // STATEFUL MAGIC: Regenerate session ID to prevent fixation attacks
+            $request->session()->regenerate();
+
+            return response()->json([
+                'message' => 'Login successful',
+                'user' => Auth::user()
+            ]);
         }
-
-        $user = Auth::user();
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+            'message' => 'The provided credentials do not match our records.',
+        ], 401);
     }
 
     // Handle Logout
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
+
+        // Invalidate the session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Logged out successfully']);
     }

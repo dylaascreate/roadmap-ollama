@@ -1,0 +1,81 @@
+### ========================================================================
+### SECTION 1: MAIN BACKEND (LARAVEL)
+### Base URL: http://127.0.0.1:8000
+### ========================================================================
+
+@laravelUrl = http://127.0.0.1:8000/api
+@contentType = application/json
+@authToken = {{laravel_login.response.body.token}}
+
+### 1. Register Student (Laravel)
+POST {{laravelUrl}}/register
+Content-Type: {{contentType}}
+
+{
+    "name": "DevNexus Student",
+    "email": "student@upsi.edu.my",
+    "password": "password",
+    "password_confirmation": "password"
+}
+
+### 2. Login (Laravel Sanctum/Passport)
+# @name laravel_login
+POST {{laravelUrl}}/login
+Content-Type: {{contentType}}
+
+{
+    "email": "student@upsi.edu.my",
+    "password": "password"
+}
+
+### 3. Get User Profile
+GET {{laravelUrl}}/user
+Authorization: Bearer {{authToken}}
+Accept: {{contentType}}
+
+### 4. Update Profile Manually (ProfileController)
+# Updating the skills and target career manually as requested
+PUT {{laravelUrl}}/profile/update
+Authorization: Bearer {{authToken}}
+Content-Type: {{contentType}}
+
+{
+    "current_skills": ["HTML", "CSS", "Basic PHP"],
+    "target_career": "Software Engineer",
+    "academic_year": 2
+}
+
+### 5. Request Roadmap Generation (Laravel Trigger)
+# This request goes to Laravel, which then calls Python internally
+POST {{laravelUrl}}/roadmaps
+Authorization: Bearer {{authToken}}
+Content-Type: {{contentType}}
+
+{
+    "goal": "Master Laravel Framework",
+    "preferences": "Video tutorials and documentation"
+}
+
+
+### ========================================================================
+### SECTION 2: AI SERVICE (PYTHON FLASK)
+### Base URL: http://127.0.0.1:5000
+### Use this to test if your AI logic works before connecting it to Laravel
+### ========================================================================
+
+@flaskUrl = http://localhost:5001
+
+### 6. Test AI Generation Directly
+# Simulates the data Laravel would send to Flask
+POST {{flaskUrl}}/generate-roadmap
+Content-Type: {{contentType}}
+
+{
+    "current_skills": ["HTML", "CSS", "Basic PHP"],
+    "target_career": "Software Engineer",
+    "prompt_context": "Create a 4-week study plan."
+}
+
+### 7. Health Check (Optional)
+# Check if Flask is running
+GET {{flaskUrl}}/health

@@ -8,3 +8,5 @@ picklescan
 requests
 psycopg2-binary
 pickle
+ollama
+tqdm

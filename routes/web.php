@@ -15,3 +15,7 @@ Route::get('/', function () {
 Route::get('/{any}', function () {
     return view('welcome');
 })->where('any', '.*');
+
+Route::middleware('auth')->get('/admin', function () {
+    return view('app');
+});
